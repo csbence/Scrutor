@@ -4,10 +4,12 @@
 #ifndef REALTIMESEARCH_A_STAR_H
 #define REALTIMESEARCH_A_STAR_H
 
+#include "easylogging++.h"
 #include <queue>
 #include <vector>
 #include <unordered_set>
 #include <boost/optional.hpp>
+#include <boost/pool/object_pool.hpp>
 
 namespace rts {
 
@@ -18,18 +20,30 @@ class AStar {
 
   class Node {
    public:
-    Node(State state) : parent(*this), state(state), heuristicValue(0) {
+    Node(State state) :
+        state(std::move(state)),
+        parent(NULL),
+        heuristicValue(0),
+        gValue(0) {
     }
 
-    Node(State state, Node& parent, double h) : parent(parent), state(state), heuristicValue(h) {
+    Node(State state, Node* parent, double h, double g) :
+        state(std::move(state)),
+        parent(parent),
+        heuristicValue(h),
+        gValue(g) {
     }
 
-    void setParent(Node parent) {
+    void setParent(Node* parent) {
       this->parent = parent;
     }
 
     Node& getParent() const {
-      return parent;
+      return *parent;
+    }
+
+    bool hasParent() const {
+      return parent == nullptr;
     }
 
     const State& getState() const {
@@ -40,10 +54,19 @@ class AStar {
       return heuristicValue;
     }
 
+    double getGValue() const {
+      return heuristicValue + gValue;
+    }
+
+    double getFValue() const {
+      return gValue;
+    }
+
    private:
-    Node& parent;
     const State state;
+    Node* parent;
     const double heuristicValue;
+    const double gValue;
   };
 
   AStar(Domain domain) : domain(std::move(domain)) {
@@ -52,16 +75,15 @@ class AStar {
   AStar(AStar&&) = default;
 
   std::vector<State> solve() {
+    boost::object_pool<Node> nodePool(4096, 0);
+    LOG(INFO) << "Solve A*!" << std::endl;
+
+    std::priority_queue<Node*, std::vector<Node*>, std::less<Node*>> openList;
+    std::unordered_set<const State*, typename Domain::StateHash, typename Domain::StateEquals> closedList;
+
     State initialState = domain.getInitialState();
-
-    std::priority_queue<Node*, std::vector<Node*>, std::greater<Node*>> openList;
-    std::unordered_set<State*, typename Domain::StateHash, typename Domain::StateEquals> closedList;
-    std::vector<Node> ownerList;
-
-    ownerList.emplace_back(Node(initialState));
-    openList.push(&ownerList.back());
-
-    std::vector<State> expandedStates;
+    Node* startNode = nodePool.construct(initialState);
+    openList.push(startNode);
 
     while (!openList.empty()) {
       Node* currentNode = openList.top();
@@ -69,21 +91,33 @@ class AStar {
       const State& currentState = currentNode->getState();
 
       if (domain.isGoal(currentState)) {
+        LOG(INFO) << "Solution found!" << std::endl;
         return buildSolution(*currentNode);
       }
 
-      // Increment expansion counter
-      auto expandedStates = domain.expand(currentState);
+      LOG(INFO) << "Expand state: " << currentState << std::endl;
+
+      // TODO Increment expansion counter
+      std::vector<State> expandedStates = domain.expand(currentState);
+      closedList.insert(&currentState);
 
       for (State state : expandedStates) {
         if (closedList.find(&state) == closedList.end()) {
-          ownerList.emplace_back(Node(state, *currentNode, domain.heuristicValue(state)));
-          openList.push(&ownerList.back());
-          closedList.insert(&state);
+          LOG(INFO) << "Add state: heuristic value: " << domain.heuristicValue(state) << state << std::endl;
+          const double heuristicValue = domain.heuristicValue(state);
+
+          const Node nodeToConstruct = Node(std::move(state), currentNode, heuristicValue, (currentNode->getGValue() + 1));
+          Node* node = nodePool.construct(nodeToConstruct);
+          const State& realState = node->getState();
+          openList.push(node);
+        } else {
+          LOG(INFO) << "Discard duplicated state: heuristic value: " << domain.heuristicValue(state) << state <<
+              std::endl;
         }
       }
     }
 
+    LOG(INFO) << "No solution found!" << std::endl;
     return std::vector<SlidingTiles::State>();
   }
 
@@ -97,7 +131,7 @@ class AStar {
 
 template<typename Domain>
 inline bool operator<(const typename AStar<Domain>::Node& lhs, const typename AStar<Domain>::Node& rhs) {
-  return lhs.getHeuristicValue() < rhs.getHeuristicValue();
+  return lhs.getFValue() < rhs.getFValue();
 }
 
 template<typename Domain>
@@ -117,7 +151,7 @@ inline bool operator>=(const typename AStar<Domain>::Node& lhs, const typename A
 
 template<typename Domain>
 inline bool operator<(const typename AStar<Domain>::Node* lhs, const typename AStar<Domain>::Node* rhs) {
-  return lhs->getHeuristicValue() < rhs->getHeuristicValue();
+  return lhs->getFValue() < rhs->getFValue();
 }
 
 template<typename Domain>

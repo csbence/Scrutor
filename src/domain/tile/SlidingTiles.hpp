@@ -35,7 +35,7 @@ class SlidingTiles {
     typedef typename GridType::index Index;
 
     State(GridType grid, Index emptyCellX, Index emptyCellY) :
-        grid(grid),
+        grid(std::move(grid)),
         emptyCellX(emptyCellX),
         emptyCellY(emptyCellY) {
     }
@@ -55,7 +55,7 @@ class SlidingTiles {
    * Hash functor for SlidingTiles::State
    */
   struct StateHash {
-    std::size_t operator()(const State *state) const {
+    std::size_t operator()(const State* state) const {
       const State::GridType& grid = state->getGrid();
       std::size_t seed = 0;
 
@@ -74,7 +74,7 @@ class SlidingTiles {
   };
 
   struct StateEquals {
-    bool operator()(const State *lhs, const State *rhs) const {
+    bool operator()(const State* lhs, const State* rhs) const {
       const State::GridType& lhsGrid = lhs->getGrid();
       const State::GridType& rhsGrid = rhs->getGrid();
 
@@ -143,7 +143,7 @@ class SlidingTiles {
     return State(std::move(grid), targetX, targetY);
   }
 
-  double heuristicValue(State state) const {
+  double heuristicValue(const State& state) const {
     int manhattanSum = 0;
     int targetY = 0;
     int targetX = 0;
@@ -165,11 +165,11 @@ class SlidingTiles {
     return manhattanSum;
   }
 
-  double distanceEstimate(State) {
+  double distanceEstimate(const State& state) {
     return 0;
   }
 
-  bool isGoal(State state) const {
+  bool isGoal(const State& state) const {
     return heuristicValue(state) == 0;
   }
 
@@ -178,21 +178,27 @@ class SlidingTiles {
   const State initialState;
 };
 
-std::ostream& operator<<(std::ostream& stream, const SlidingTiles::State& slidingTiles) {
-  const SlidingTiles::State::GridType& grid = slidingTiles.getGrid();
+std::ostream& operator<<(std::ostream& stream, const SlidingTiles::State& state) {
+  const SlidingTiles::State::GridType& grid = state.getGrid();
   SlidingTiles::State::Index size = grid.shape()[0];
+
+  stream << std::endl;
 
   for (int y = 0; y < size; ++y) {
     for (int x = 0; x < size; ++x) {
-      stream << grid[x][y];
+      stream << grid[x][y] << " ";
     }
     stream << std::endl;
   }
 
+  SlidingTiles::StateHash hashFunctor;
+
+  stream << "Hash value: " << hashFunctor(&state) << std::endl;
+
   return stream;
 }
 
-std::ostream& operator<<(std::ostream& stream, const SlidingTiles::State *slidingTiles) {
+std::ostream& operator<<(std::ostream& stream, const SlidingTiles::State* slidingTiles) {
   return stream << &slidingTiles;
 }
 
