@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(RealTimeSearch)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -std=c++14")
 
 set(SOURCE_FILES
         src/main.cpp
@@ -17,7 +17,7 @@ set(TEST_FILES
         )
 
 add_executable(RealTimeSearch ${SOURCE_FILES})
-add_executable(Test ${TEST_FILES})
+add_executable(RealTimeSearchTest ${TEST_FILES})
 
 find_package(Boost 1.59.0 COMPONENTS thread system REQUIRED)
 
