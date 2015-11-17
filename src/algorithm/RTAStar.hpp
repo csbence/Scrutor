@@ -14,7 +14,7 @@
 namespace rts {
 
 template<typename Domain>
-class AStar {
+class RTAStar {
  public:
   typedef typename Domain::State State;
 
@@ -69,103 +69,107 @@ class AStar {
     const double gValue;
   };
 
-  AStar(Domain domain) : domain(std::move(domain)) {
+  RTAStar(Domain domain) : domain(std::move(domain)) {
   }
 
-  AStar(AStar&&) = default;
+  RTAStar(RTAStar&&) = default;
 
   std::vector<State> solve() {
     boost::object_pool<Node> nodePool(4096, 0);
     LOG(INFO) << "Solve A*!" << std::endl;
 
-    std::priority_queue<Node*, std::vector<Node*>, std::less<Node*>> openList;
-    std::unordered_set<const State*, typename Domain::StateHash, typename Domain::StateEquals> closedList;
-
+    std::unordered_set<const State*, typename Domain::StateHash, typename Domain::StateEquals> visitedStates;
     State initialState = domain.getInitialState();
-    Node* startNode = nodePool.construct(initialState);
-    openList.push(startNode);
+    Node* nextNode = nodePool.construct(std::move(initialState));
 
-    while (!openList.empty()) {
-      const Node* currentNode = openList.top();
-      openList.pop();
-      const State& currentState = currentNode->getState();
+    while (nextNode != nullptr) {
+      const State& currentState = nextNode->getState();
 
       if (domain.isGoal(currentState)) {
         LOG(INFO) << "Solution found!" << std::endl;
-        return buildSolution(*currentNode);
+        return buildSolution(nextNode);
       }
+
+      // Move to node
+
 
       LOG(INFO) << "Expand state: " << currentState << std::endl;
 
       // TODO Increment expansion counter
       std::vector<State> expandedStates = domain.expand(currentState);
-      closedList.insert(&currentState);
+      Node* bestSuccessorNode = nullptr;
 
       for (State state : expandedStates) {
-        if (closedList.find(&state) == closedList.end()) {
+        if (visitedStates.find(&state) == visitedStates.end()) {
           LOG(INFO) << "Add state: heuristic value: " << domain.heuristicValue(state) << state << std::endl;
           const double heuristicValue = domain.heuristicValue(state);
 
-          const Node nodeToConstruct = Node(std::move(state), currentNode, heuristicValue, (currentNode->getGValue() + 1));
+          const Node
+              nodeToConstruct = Node(std::move(state), currentNode, heuristicValue, (currentNode->getGValue() + 1));
           Node* node = nodePool.construct(nodeToConstruct);
           const State& realState = node->getState();
-          openList.push(node);
         } else {
           LOG(INFO) << "Discard duplicated state: heuristic value: " << domain.heuristicValue(state) << state <<
               std::endl;
         }
       }
+
+      nextNode = bestSuccessorNode;
     }
 
     LOG(INFO) << "No solution found!" << std::endl;
     return std::vector<Domain::State>();
   }
 
-  std::vector<Domain::State> buildSolution(const Node& node) const{
-    return std::vector<State>();
+ private:
+
+  double miniminLookahead(const Node* node) {
+    return 0;
   }
 
- private:
+  std::vector<Domain::State> buildSolution(const Node* node) const {
+    return std::vector<State>();
+  }
   const Domain domain;
 };
 
 template<typename Domain>
-inline bool operator<(const typename AStar<Domain>::Node& lhs, const typename AStar<Domain>::Node& rhs) {
+inline bool operator<(const typename RTAStar<Domain>::Node& lhs, const typename RTAStar<Domain>::Node& rhs) {
   return lhs.getFValue() < rhs.getFValue();
 }
 
 template<typename Domain>
-inline bool operator>(const typename AStar<Domain>::Node& lhs, const typename AStar<Domain>::Node& rhs) {
+inline bool operator>(const typename RTAStar<Domain>::Node& lhs, const typename RTAStar<Domain>::Node& rhs) {
   return rhs < lhs;
 }
 
 template<typename Domain>
-inline bool operator<=(const typename AStar<Domain>::Node& lhs, const typename AStar<Domain>::Node& rhs) {
+inline bool operator<=(const typename RTAStar<Domain>::Node& lhs, const typename RTAStar<Domain>::Node& rhs) {
   return !(lhs > rhs);
 }
 
 template<typename Domain>
-inline bool operator>=(const typename AStar<Domain>::Node& lhs, const typename AStar<Domain>::Node& rhs) {
+inline bool operator>=(const typename RTAStar<Domain>::Node& lhs, const typename RTAStar<Domain>::Node& rhs) {
   return !(lhs < rhs);
 }
 
 template<typename Domain>
-inline bool operator<(const typename AStar<Domain>::Node* lhs, const typename AStar<Domain>::Node* rhs) {
+inline bool operator<(const typename RTAStar<Domain>::Node* lhs, const typename RTAStar<Domain>::Node* rhs) {
   return lhs->getFValue() < rhs->getFValue();
 }
 
 template<typename Domain>
-inline bool operator>(const typename AStar<Domain>::Node* lhs, const typename AStar<Domain>::Node* rhs) {
+inline bool operator>(const typename RTAStar<Domain>::Node* lhs, const typename RTAStar<Domain>::Node* rhs) {
   return rhs < lhs;
 }
 
 template<typename Domain>
-inline bool operator<=(const typename AStar<Domain>::Node* lhs, const typename AStar<Domain>::Node* rhs) {
+inline bool operator<=(const typename RTAStar<Domain>::Node* lhs, const typename RTAStar<Domain>::Node* rhs) {
   return !(lhs > rhs);
 }
 
 template<typename Domain>
-inline bool operator>=(const typename AStar<Domain>::Node* lhs, const typename AStar<Domain>::Node* rhs) {
+inline bool operator>=(const typename RTAStar<Domain>::Node* lhs, const typename RTAStar<Domain>::Node* rhs) {
   return !(lhs < rhs);
 }
 
