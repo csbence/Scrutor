@@ -22,23 +22,19 @@ class AStar {
    public:
     Node(State state) :
         state(std::move(state)),
-        parent(NULL),
+        parent(nullptr),
         heuristicValue(0),
         gValue(0) {
     }
 
-    Node(State state, Node* parent, double h, double g) :
+    Node(State state, const Node* parent, double h, double g) :
         state(std::move(state)),
         parent(parent),
         heuristicValue(h),
         gValue(g) {
     }
 
-    void setParent(Node* parent) {
-      this->parent = parent;
-    }
-
-    Node& getParent() const {
+    const Node& getParent() const {
       return *parent;
     }
 
@@ -64,7 +60,7 @@ class AStar {
 
    private:
     const State state;
-    Node* parent;
+    const Node* parent;
     const double heuristicValue;
     const double gValue;
   };
@@ -118,10 +114,10 @@ class AStar {
     }
 
     LOG(INFO) << "No solution found!" << std::endl;
-    return std::vector<Domain::State>();
+    return std::vector<State>();
   }
 
-  std::vector<Domain::State> buildSolution(const Node& node) const{
+  std::vector<State> buildSolution(const Node& node) const{
     return std::vector<State>();
   }
 
